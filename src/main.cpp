@@ -26,6 +26,7 @@ int main(int argc, const char* argv[])
             auto web_root_path = boost::filesystem::canonical("web");
             auto path = boost::filesystem::canonical(web_root_path / request->path);
 
+            std::cout << path << std::endl;
             if(boost::filesystem::is_directory(path))
             {
                 path /= "index.html";
@@ -43,8 +44,9 @@ int main(int argc, const char* argv[])
             {
                 auto length = ifs->tellg();
                 ifs->seekg(0, std::ios::beg);
+                auto cache_control = "Cache-Control: no-cache, no-store, must_revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n";
 
-                *response << "HTTP/1.1 200 OK\r\n" << "Content-Length: " << length << "\r\n\r\n";
+                *response << "HTTP/1.1 200 OK\r\n" << cache_control << "Content-Length: " << length << "\r\n\r\n";
                 default_resource_send(server, response, ifs);
             }
             else
