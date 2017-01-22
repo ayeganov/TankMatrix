@@ -43,7 +43,7 @@ define(['jquery', './bot'], function($, bot)
 
         start()
         {
-            this.loop_handle = setInterval(this.loop.bind(this), 1000);
+            this.loop_handle = setInterval(this.loop.bind(this), 17);
         }
 
         stop()
@@ -57,6 +57,10 @@ define(['jquery', './bot'], function($, bot)
             this.clear_canvas();
             this.init_graphics();
             this._bot.update(this.ctx);
+        }
+
+        post_fitnesses()
+        {
             $.post("fitness", JSON.stringify([ {id: 1, fitness: 1.0} ])).then(
                 function(response, text_status, jqXHR) {
                     console.log("Status: " + text_status);
