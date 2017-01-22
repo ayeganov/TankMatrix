@@ -11,11 +11,31 @@ define(['gl-matrix'], function(glmatrix)
             this.image.src = "./images/tank.png";
             this.image.onload = this.image_loaded.bind(this);
             this.ready = false;
+            document.addEventListener('keydown', this.move.bind(this));
         }
 
-        move()
+        move(event)
         {
             console.log("Moving bot " + this.bot_id);
+            const key_name = event.key;
+
+            console.log("You pressed key: " + key_name);
+            if(key_name == "ArrowRight")
+            {
+                this.position[0] += 1;
+            }
+            else if(key_name == "ArrowLeft")
+            {
+                this.position[0] -= 1;
+            }
+            else if(key_name == "ArrowUp")
+            {
+                this.position[1] -= 1;
+            }
+            else if(key_name == "ArrowDown")
+            {
+                this.position[1] += 1;
+            }
         }
 
         image_loaded(img)
@@ -40,6 +60,11 @@ define(['gl-matrix'], function(glmatrix)
             {
                 console.log("Not ready yet!");
             }
+        }
+
+        update(ctx)
+        {
+            this.draw_bot(ctx);
         }
     }
 
