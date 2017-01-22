@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.0)
-project(TankSimulator)
+project(TankMatrix)
 
 add_definitions(-std=c++14)
 
 # Resolve includes and required packages here
+set(BOOST_ROOT /usr/include/boost)
 set(BOOST_COMPONENTS system thread filesystem date_time)
 find_package(OpenCV REQUIRED)
 find_package(Boost COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
