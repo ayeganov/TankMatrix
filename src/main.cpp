@@ -57,7 +57,7 @@ int main(int argc, const char* argv[])
 /**
  * All requests that are not defined explicitly are assumed to be file reqeusts, and this handler fetches them.
  */
-void default_resource_handler(HttpServer& server,
+inline void default_resource_handler(HttpServer& server,
                               std::shared_ptr<HttpServer::Response>& response,
                               std::shared_ptr<HttpServer::Request>& request)
 {
@@ -115,7 +115,6 @@ void fitness_handler(std::shared_ptr<HttpServer::Response> response,
     try
     {
         std::string post_data = request->content.string();
-        std::cout << "Content: " << post_data << std::endl;
         json obj = json::parse(post_data);
 
         json json_response;
