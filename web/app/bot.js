@@ -1,5 +1,5 @@
 'use strict';
-define(['gl-matrix', './brain', './utils'], function(glmatrix, brain, utils)
+define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, brain, utils, consts)
 {
     class Bot
     {
@@ -12,12 +12,39 @@ define(['gl-matrix', './brain', './utils'], function(glmatrix, brain, utils)
             this.left_track = 0;
             this.right_track = 0;
             this.brain = new brain.Brain();
+            this.sensors = this.create_sensors(5, 40);
 
             this.image = new Image();
             this.image.src = "./images/tank.png";
+        }
 
-            this.MAX_ROTATION = 0.2;
-            this.ANGLE_OFFSET = -Math.PI / 2;
+        create_sensors(num_sensors, range)
+        {
+            var sensors = [];
+            var segment = Math.PI / (num_sensors - 1);
+            for(var i = 0; i < num_sensors; ++i)
+            {
+                var point = glmatrix.vec3.create();
+                point[0] = -Math.sin(i * segment + consts.ANGLE_OFFSET) * range;
+                point[1] = Math.cos(i * segment + consts.ANGLE_OFFSET) * range;
+                point[2] = 0;
+                sensors.push(point);
+            }
+            return sensors;
+        }
+
+        get_trans_sensors()
+        {
+            var dir_angle = Math.atan2(this.direction[1], this.direction[0]) + consts.ANGLE_OFFSET;
+            var trans_sensors = [];
+            for(let sensor of this.sensors)
+            {
+                var trans_sensor = glmatrix.vec3.clone(sensor);
+                var origin = glmatrix.vec3.create();
+                glmatrix.vec3.rotateZ(trans_sensor, trans_sensor, origin, dir_angle);
+                trans_sensors.push(trans_sensor);
+            }
+            return trans_sensors;
         }
 
         /**
@@ -27,29 +54,41 @@ define(['gl-matrix', './brain', './utils'], function(glmatrix, brain, utils)
         {
             ctx.save();
 
+            ctx.beginPath();
             var x = this.position[0];
             var y = this.position[1];
 
             var x_offset = this.image.width / 2;
             var y_offset = this.image.height / 2;
             ctx.translate(x, y);
-            ctx.rotate(this.rotation + this.ANGLE_OFFSET);
+            ctx.rotate(this.rotation + consts.ANGLE_OFFSET);
 
             ctx.drawImage(this.image, -x_offset, -y_offset, this.image.width, this.image.height);
             ctx.restore();
 
             ctx.fillStyle = 'red';
-            var start_angle = 0;
-            var end_angle = 2 * Math.PI;
+            utils.draw_circle(ctx, x, y, 2);
 
-            // fill arc from start to end - all 360 == circle
-            ctx.arc(x, y, 2, start_angle, end_angle, false);
-            ctx.fill();
+            this.draw_sensors(ctx);
+        }
+
+        draw_sensors(ctx)
+        {
+            ctx.fillStyle = 'blue';
+            var x = this.position[0];
+            var y = this.position[1];
+            var radius = 2;
+
+            var dir_angle = Math.atan2(this.direction[1], this.direction[0]) + consts.ANGLE_OFFSET;
+            for(let sensor of this.get_trans_sensors())
+            {
+                utils.draw_circle(ctx, sensor[0] + x, sensor[1] + y, radius);
+            }
         }
 
         update_rotation(left_track, right_track)
         {
-            var rotation_force = utils.clamp(left_track - right_track, -this.MAX_ROTATION, this.MAX_ROTATION);
+            var rotation_force = utils.clamp(left_track - right_track, -consts.MAX_ROTATION, consts.MAX_ROTATION);
             this.rotation += rotation_force;
         }
 
@@ -75,7 +114,7 @@ define(['gl-matrix', './brain', './utils'], function(glmatrix, brain, utils)
 
         update(ctx)
         {
-            // TODO: Add readings to the update method
+            // TODO: Supply readings to the brain.update method
             var track_speeds = this.brain.update();
             var left = track_speeds[0];
             var right = track_speeds[1];

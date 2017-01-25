@@ -11,7 +11,19 @@ define([], function()
         return Math.random() * (max - min) + min;
     }
 
+    function draw_circle(ctx, x, y, radius)
+    {
+        var start_angle = 0;
+        var end_angle = 2 * Math.PI;
+
+        // fill arc from start to end - all 360 == circle
+        ctx.arc(x, y, radius, start_angle, end_angle, false);
+        ctx.fill();
+        ctx.beginPath();
+    }
+
     return {
-        clamp: clamp
+        clamp: clamp,
+        draw_circle: draw_circle
     }
 });
