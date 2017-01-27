@@ -3,7 +3,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
 {
     class Bot
     {
-        constructor(bot_id, init_position)
+        constructor(bot_id, init_position, memory_map)
         {
             this.bot_id = bot_id;
             this.position = glmatrix.vec2.fromValues(init_position[0], init_position[1]);
@@ -12,7 +12,8 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.left_track = 0;
             this.right_track = 0;
             this.brain = new brain.Brain();
-            this.sensors = this.create_sensors(5, 40);
+            this.sensors = this.create_sensors(10, 80);
+            this.memory_map = memory_map;
 
             this.image = new Image();
             this.image.src = "./images/tank.png";
@@ -101,6 +102,8 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
 
         update_position(left_track, right_track)
         {
+            this.memory_map.update(this.position[0], this.position[1]);
+
             var speed = left_track + right_track;
             var tmp_dir = glmatrix.vec2.create();
 
@@ -122,6 +125,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.update_rotation(left, right);
             this.update_direction();
             this.update_position(left, right);
+            this.memory_map.draw_map(ctx);
             this.draw_bot(ctx);
         }
     }

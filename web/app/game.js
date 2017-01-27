@@ -1,4 +1,4 @@
-define(['jquery', './bot'], function($, bot)
+define(['jquery', './bot', './map'], function($, bot, map)
 {
     class Game
     {
@@ -6,7 +6,9 @@ define(['jquery', './bot'], function($, bot)
         {
             this.canvas = document.getElementById(canvas_id);
             this.ctx = this.canvas.getContext('2d');
-            this._bot = new bot.Bot(1, [100, 100]);
+            this._bot = new bot.Bot(1, [100, 100], new map.Map(this.canvas.width,
+                                                               this.canvas.height,
+                                                               50));
             this.loop_handle = null;
             this.init_graphics();
             this.setup_events();

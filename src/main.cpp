@@ -55,7 +55,7 @@ int main(int argc, const char* argv[])
 //================== Function definitions ====================
 
 /**
- * All requests that are not defined explicitly are assumed to be file reqeusts, and this handler fetches them.
+ * All requests that are not defined explicitly are assumed to be file requests, and this handler fetches them.
  */
 inline void default_resource_handler(HttpServer& server,
                               std::shared_ptr<HttpServer::Response>& response,

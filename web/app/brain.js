@@ -36,14 +36,14 @@ define([], function()
                 }
                 case 'ArrowUp':
                 {
-                    this.left_track = 0.2;
-                    this.right_track = 0.2;
+                    this.left_track = 0.5;
+                    this.right_track = 0.5;
                     break;
                 }
                 case 'ArrowDown':
                 {
-                    this.left_track = -0.2;
-                    this.right_track = -0.2;
+                    this.left_track = -0.5;
+                    this.right_track = -0.5;
                     break;
                 }
             }
