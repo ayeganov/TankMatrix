@@ -8,7 +8,7 @@ define(['jquery', './bot', './map'], function($, bot, map)
             this.ctx = this.canvas.getContext('2d');
             this._bot = new bot.Bot(1, [100, 100], new map.Map(this.canvas.width,
                                                                this.canvas.height,
-                                                               50));
+                                                               20));
             this.loop_handle = null;
             this.init_graphics();
             this.setup_events();
@@ -21,6 +21,11 @@ define(['jquery', './bot', './map'], function($, bot, map)
             this.ctx.strokeStyle = 'blue';
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height);
+
+            this.ctx.beginPath();
+            this.ctx.moveTo(200, 200);
+            this.ctx.lineTo(300, 300);
+            this.ctx.stroke();
         }
 
         setup_events()
@@ -30,7 +35,7 @@ define(['jquery', './bot', './map'], function($, bot, map)
 
         handle_events(event)
         {
-            if(event.key == "Enter")
+            if(event.key === "Enter")
             {
                 if(this.loop_handle === null)
                 {
@@ -57,8 +62,8 @@ define(['jquery', './bot', './map'], function($, bot, map)
         loop()
         {
             this.clear_canvas();
+            this._bot.update(this.ctx, this.canvas.width, this.canvas.height);
             this.init_graphics();
-            this._bot.update(this.ctx);
         }
 
         post_fitnesses()
