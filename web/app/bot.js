@@ -43,6 +43,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
                 var trans_sensor = glmatrix.vec3.clone(sensor);
                 var origin = glmatrix.vec3.create();
                 glmatrix.vec3.rotateZ(trans_sensor, trans_sensor, origin, dir_angle);
+                glmatrix.vec3.add(trans_sensor, trans_sensor, this.position);
                 trans_sensors.push(trans_sensor);
             }
             return trans_sensors;
@@ -69,11 +70,9 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
 
             ctx.fillStyle = 'red';
             utils.draw_circle(ctx, x, y, 2);
-
-            this.draw_sensors(ctx);
         }
 
-        draw_sensors(ctx)
+        draw_sensors(ctx, sensors, collisions)
         {
             ctx.fillStyle = 'blue';
             var x = this.position[0];
@@ -81,9 +80,27 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             var radius = 2;
 
             var dir_angle = Math.atan2(this.direction[1], this.direction[0]) + consts.ANGLE_OFFSET;
-            for(let sensor of this.get_trans_sensors())
+            for(var i = 0; i < sensors.length; ++i)
             {
-                utils.draw_circle(ctx, sensor[0] + x, sensor[1] + y, radius);
+                var sensor = sensors[i];
+                var collision_depth = collisions[i];
+
+                if(collision_depth !== null)
+                {
+                    ctx.fillStyle = 'red';
+                    ctx.strokeStyle = 'red';
+                }
+                else
+                {
+                    ctx.fillStyle = 'blue';
+                    ctx.strokeStyle = 'blue';
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(sensor[0], sensor[1]);
+                ctx.stroke();
+                utils.draw_circle(ctx, sensor[0], sensor[1], radius);
             }
         }
 
@@ -100,7 +117,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.direction[1] = Math.sin(this.rotation);
         }
 
-        update_position(left_track, right_track)
+        update_position(left_track, right_track, x_limit, y_limit)
         {
             this.memory_map.update(this.position[0], this.position[1]);
 
@@ -113,9 +130,26 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             glmatrix.vec2.scale(tmp_dir, tmp_dir, speed);
 
             glmatrix.vec2.add(this.position, this.position, tmp_dir);
+
+            this.position[0] = Math.min(x_limit, this.position[0]);
+            this.position[0] = Math.max(0, this.position[0]);
+
+            this.position[1] = Math.min(y_limit, this.position[1]);
+            this.position[1] = Math.max(0, this.position[1]);
         }
 
-        update(ctx)
+        get_sensor_collissions(sensors, line)
+        {
+            var collisions = [];
+            for(let sensor of sensors)
+            {
+                var depth = utils.line_intersection_2d(this.position, sensor, line[0], line[1]);
+                collisions.push(depth);
+            }
+            return collisions;
+        }
+
+        update(ctx, world_width, world_height)
         {
             // TODO: Supply readings to the brain.update method
             var track_speeds = this.brain.update();
@@ -124,9 +158,13 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
 
             this.update_rotation(left, right);
             this.update_direction();
-            this.update_position(left, right);
+            this.update_position(left, right, world_width, world_height);
             this.memory_map.draw_map(ctx);
+
+            var trans_sensors = this.get_trans_sensors();
+            var collisions = this.get_sensor_collissions(trans_sensors, [[200, 200], [300, 300]]);
             this.draw_bot(ctx);
+            this.draw_sensors(ctx, trans_sensors, collisions);
         }
     }
 
