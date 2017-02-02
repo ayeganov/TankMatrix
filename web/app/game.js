@@ -1,4 +1,4 @@
-define(['jquery', './bot', './map'], function($, bot, map)
+define(['jquery', 'underscore', './bot', './map', './obstacles'], function($, _, bot, map, obstacles)
 {
     class Game
     {
@@ -21,11 +21,30 @@ define(['jquery', './bot', './map'], function($, bot, map)
             this.ctx.strokeStyle = 'blue';
             this.ctx.lineWidth = 2;
             this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        draw_obstacles()
+        {
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeStyle = 'black';
+
+            for(let points of obstacles.obstacles)
+            {
+                this._draw_obstacle(points);
+            }
+        }
+
+        _draw_obstacle(obstacle_points)
+        {
+            var start = obstacle_points[0];
 
             this.ctx.beginPath();
-            this.ctx.moveTo(200, 200);
-            this.ctx.lineTo(300, 300);
-            this.ctx.stroke();
+            this.ctx.moveTo(start[0], start[1]);
+            for(let point of _.rest(obstacle_points))
+            {
+                this.ctx.lineTo(point[0], point[1]);
+                this.ctx.stroke();
+            }
         }
 
         setup_events()
@@ -64,6 +83,7 @@ define(['jquery', './bot', './map'], function($, bot, map)
             this.clear_canvas();
             this._bot.update(this.ctx, this.canvas.width, this.canvas.height);
             this.init_graphics();
+            this.draw_obstacles();
         }
 
         post_fitnesses()
