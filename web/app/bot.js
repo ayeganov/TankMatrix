@@ -85,7 +85,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
                 var sensor = sensors[i];
                 var collision_depth = collisions[i];
 
-                if(collision_depth !== null)
+                if(!_.isUndefined(collision_depth) && !_.isNull(collision_depth))
                 {
                     ctx.fillStyle = 'red';
                     ctx.strokeStyle = 'red';
@@ -138,19 +138,58 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.position[1] = Math.max(0, this.position[1]);
         }
 
-        get_sensor_collissions(sensors, line)
+        get_line_collissions(sensors, line)
         {
-            var collisions = [];
-            for(let sensor of sensors)
+            var collisions = {};
+            var self = this;
+            sensors.forEach(function(sensor, idx)
             {
-                var depth = utils.line_intersection_2d(this.position, sensor, line[0], line[1]);
-                collisions.push(depth);
-            }
+                var depth = utils.line_intersection_2d(self.position, sensor, line[0], line[1]);
+                if(!_.isNull(depth))
+                {
+                    collisions[idx] = depth;
+                }
+            });
             return collisions;
         }
 
-        update(ctx, world_width, world_height)
+        get_obstacle_collissions(sensors, obstacle)
         {
+            var total_collisions = {};
+            for(var i = 0; i < (obstacle.length - 1); ++i)
+            {
+                var collisions = this.get_line_collissions(sensors, [obstacle[i], obstacle[i+1]]);
+                _.extend(total_collisions, collisions);
+                if(Object.keys(total_collisions).length > 10)
+                {
+                    return total_collisions;
+                }
+            }
+            return total_collisions;
+        }
+
+        get_collissions(sensors, obstacles)
+        {
+            var self = this;
+            var result = {};
+            for(var i = 0; i < obstacles.length; ++i)
+            {
+                var obstacle = obstacles[i];
+                var collisions = self.get_obstacle_collissions(sensors, obstacle);
+                if(Object.keys(collisions).length > 0)
+                {
+                    return collisions;
+                }
+            };
+            return result;
+        }
+
+
+        update(ctx, world_width, world_height, obstacles)
+        {
+            var trans_sensors = this.get_trans_sensors();
+            var collisions = this.get_collissions(trans_sensors, obstacles);
+
             // TODO: Supply readings to the brain.update method
             var track_speeds = this.brain.update();
             var left = track_speeds[0];
@@ -161,8 +200,6 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.update_position(left, right, world_width, world_height);
             this.memory_map.draw_map(ctx);
 
-            var trans_sensors = this.get_trans_sensors();
-            var collisions = this.get_sensor_collissions(trans_sensors, [[200, 200], [300, 300]]);
             this.draw_bot(ctx);
             this.draw_sensors(ctx, trans_sensors, collisions);
         }
