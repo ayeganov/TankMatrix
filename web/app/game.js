@@ -1,4 +1,4 @@
-define(['jquery', 'underscore', './bot', './map', './obstacles'], function($, _, bot, map, obstacles)
+define(['jquery', 'underscore', './bot', './map', './obstacles', './consts'], function($, _, bot, map, obstacles, consts)
 {
     class Game
     {
@@ -8,7 +8,7 @@ define(['jquery', 'underscore', './bot', './map', './obstacles'], function($, _,
             this.ctx = this.canvas.getContext('2d');
             this._bot = new bot.Bot(1, [100, 100], new map.Map(this.canvas.width,
                                                                this.canvas.height,
-                                                               20));
+                                                               consts.CELL_SIZE));
             this.loop_handle = null;
             this.init_graphics();
             this.setup_events();

@@ -12,7 +12,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.left_track = 0;
             this.right_track = 0;
             this.brain = new brain.Brain();
-            this.sensors = this.create_sensors(10, 80);
+            this.sensors = this.create_sensors(consts.NUM_SENSORS, consts.SENSOR_RANGE);
             this.memory_map = memory_map;
 
             this.image = new Image();
@@ -117,25 +117,28 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.direction[1] = Math.sin(this.rotation);
         }
 
-        update_position(left_track, right_track, x_limit, y_limit)
+        update_position(left_track, right_track, x_limit, y_limit, collided)
         {
             this.memory_map.update(this.position[0], this.position[1]);
 
-            var speed = left_track + right_track;
-            var tmp_dir = glmatrix.vec2.create();
+            if(!collided)
+            {
+                var speed = left_track + right_track;
+                var tmp_dir = glmatrix.vec2.create();
 
-            // glmatrix has asinine API
-            glmatrix.vec2.copy(tmp_dir, this.direction);
+                // glmatrix has asinine API
+                glmatrix.vec2.copy(tmp_dir, this.direction);
 
-            glmatrix.vec2.scale(tmp_dir, tmp_dir, speed);
+                glmatrix.vec2.scale(tmp_dir, tmp_dir, speed);
 
-            glmatrix.vec2.add(this.position, this.position, tmp_dir);
+                glmatrix.vec2.add(this.position, this.position, tmp_dir);
 
-            this.position[0] = Math.min(x_limit, this.position[0]);
-            this.position[0] = Math.max(0, this.position[0]);
+                this.position[0] = Math.min(x_limit, this.position[0]);
+                this.position[0] = Math.max(0, this.position[0]);
 
-            this.position[1] = Math.min(y_limit, this.position[1]);
-            this.position[1] = Math.max(0, this.position[1]);
+                this.position[1] = Math.min(y_limit, this.position[1]);
+                this.position[1] = Math.max(0, this.position[1]);
+            }
         }
 
         get_line_collissions(sensors, line)
@@ -160,7 +163,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             {
                 var collisions = this.get_line_collissions(sensors, [obstacle[i], obstacle[i+1]]);
                 _.extend(total_collisions, collisions);
-                if(Object.keys(total_collisions).length > 10)
+                if(Object.keys(total_collisions).length >= consts.NUM_SENSORS)
                 {
                     return total_collisions;
                 }
@@ -170,25 +173,73 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
 
         get_collissions(sensors, obstacles)
         {
-            var self = this;
             var result = {};
             for(var i = 0; i < obstacles.length; ++i)
             {
                 var obstacle = obstacles[i];
-                var collisions = self.get_obstacle_collissions(sensors, obstacle);
-                if(Object.keys(collisions).length > 0)
+                var collisions = this.get_obstacle_collissions(sensors, obstacle);
+                _.extend(result, collisions);
+                if(Object.keys(result).length >= consts.NUM_SENSORS)
                 {
-                    return collisions;
+                    return result;
                 }
             };
             return result;
         }
 
+        get_feeler_senses(sensors, collisions)
+        {
+            var feelers = {};
+            var self = this;
+            _.each(sensors, function(sensor, idx, list)
+            {
+                var x = sensor[0];
+                var y = sensor[1];
+                var ticks = self.memory_map.ticks_lingered(x, y);
+                feelers[idx] = ticks > 0 ? (ticks / consts.MAX_TICK) : -1;
+            });
+            return feelers;
+        }
+
+        _is_too_close_to_move(collisions)
+        {
+            for(let value of _.values(collisions))
+            {
+                if(value <= 0.4)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        _create_brain_input(collisions, feelers, collided)
+        {
+            var input = [];
+            input.push(collided);
+
+            _.map(_.range(consts.NUM_SENSORS), function(idx)
+            {
+                var collision_depth = collisions[idx];
+                input.push(_.isUndefined(collision_depth) ? -1 : collision_depth);
+            });
+
+            _.map(_.range(consts.NUM_SENSORS), function(idx)
+            {
+                input.push(feelers[idx]);
+            });
+            return input;
+        }
 
         update(ctx, world_width, world_height, obstacles)
         {
             var trans_sensors = this.get_trans_sensors();
             var collisions = this.get_collissions(trans_sensors, obstacles);
+            var feelers = this.get_feeler_senses(trans_sensors, collisions);
+
+            var collided = this._is_too_close_to_move(collisions);
+
+            var input = this._create_brain_input(collisions, feelers, collided);
 
             // TODO: Supply readings to the brain.update method
             var track_speeds = this.brain.update();
@@ -197,7 +248,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
 
             this.update_rotation(left, right);
             this.update_direction();
-            this.update_position(left, right, world_width, world_height);
+            this.update_position(left, right, world_width, world_height, collided);
             this.memory_map.draw_map(ctx);
 
             this.draw_bot(ctx);

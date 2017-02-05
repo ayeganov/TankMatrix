@@ -1,5 +1,5 @@
 'use strict';
-define(['./utils'], function(utils)
+define(['./utils', './consts'], function(utils, consts)
 {
     class MapCell
     {
@@ -14,7 +14,7 @@ define(['./utils'], function(utils)
 
         update()
         {
-            ++this.ticks;
+            this.ticks = Math.min(this.ticks + 1, consts.MAX_TICK);
         }
 
         reset()
