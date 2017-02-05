@@ -81,7 +81,7 @@ define(['jquery', 'underscore', './bot', './map', './obstacles'], function($, _,
         loop()
         {
             this.clear_canvas();
-            this._bot.update(this.ctx, this.canvas.width, this.canvas.height);
+            this._bot.update(this.ctx, this.canvas.width, this.canvas.height, obstacles.obstacles);
             this.init_graphics();
             this.draw_obstacles();
         }
