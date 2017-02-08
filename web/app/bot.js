@@ -1,9 +1,9 @@
 'use strict';
-define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, brain, utils, consts)
+define(['gl-matrix', './utils', './consts.js'], function(glmatrix, utils, consts)
 {
     class Bot
     {
-        constructor(bot_id, init_position, memory_map)
+        constructor(bot_id, init_position, brain, memory_map)
         {
             this.bot_id = bot_id;
             this.position = glmatrix.vec2.fromValues(init_position[0], init_position[1]);
@@ -11,7 +11,7 @@ define(['gl-matrix', './brain', './utils', './consts.js'], function(glmatrix, br
             this.direction = glmatrix.vec2.fromValues(-Math.sin(this.rotation), Math.cos(this.rotation));
             this.left_track = 0;
             this.right_track = 0;
-            this.brain = new brain.PlayerBrain();
+            this.brain = brain;
             this.sensors = this.create_sensors(consts.NUM_SENSORS, consts.SENSOR_RANGE);
             this.memory_map = memory_map;
 

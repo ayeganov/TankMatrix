@@ -3,6 +3,7 @@ project(TankMatrix)
 
 add_definitions(-std=c++14)
 
+include_directories(include)
 # Resolve includes and required packages here
 set(BOOST_ROOT /usr/include/boost)
 set(BOOST_COMPONENTS system thread filesystem date_time)

@@ -1,4 +1,4 @@
-define(['jquery', 'underscore', './bot', './map', './obstacles', './consts'], function($, _, bot, map, obstacles, consts)
+define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './brain'], function($, _, bot, map, obstacles, consts, brain)
 {
     class Game
     {
@@ -6,9 +6,7 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts'], fu
         {
             this.canvas = document.getElementById(canvas_id);
             this.ctx = this.canvas.getContext('2d');
-            this._bot = new bot.Bot(1, [100, 100], new map.Map(this.canvas.width,
-                                                               this.canvas.height,
-                                                               consts.CELL_SIZE));
+            this.initialize_bots();
             this.loop_handle = null;
             this.init_graphics();
             this.setup_events();
@@ -81,21 +79,52 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts'], fu
         loop()
         {
             this.clear_canvas();
-            this._bot.update(this.ctx, this.canvas.width, this.canvas.height, obstacles.obstacles);
+            for(let bot of this._bots)
+            {
+                bot.update(this.ctx, this.canvas.width, this.canvas.height, obstacles.obstacles);
+            }
             this.init_graphics();
             this.draw_obstacles();
         }
 
         post_fitnesses()
         {
+            var self = this;
             $.post("fitness", JSON.stringify([ {id: 1, fitness: 1.0} ])).then(
                 function(response, text_status, jqXHR) {
                     console.log("Status: " + text_status);
                     console.log("Got response: " + response);
+                    self.test_brain = new brain.BotBrain(response);
+                    console.log(self.test_brain.update([0.1, 0.2,0.3,0.4,0.5,0.6, 0.7,0.8,0.9,0.10,0.11]));
+                    console.log("Got the brain");
                 },
                 function(response, text_status, jqXHR) {
                     console.log("Post failed: " + text_status);
                     console.log(response);
+                }
+            );
+        }
+
+        initialize_bots()
+        {
+            this._bots = [];
+            var self = this;
+            $.get("init_brains").then(
+                function(response, text_status, jqXHR)
+                {
+                    for(let r of response)
+                    {
+                        self._bots.push(new bot.Bot(1,
+                                        [100, 100],
+                                        new brain.BotBrain(r),
+                                        new map.Map(self.canvas.width,
+                                                    self.canvas.height,
+                                                    consts.CELL_SIZE)));
+                    }
+                },
+                function(response, text_status, jqXHR)
+                {
+                    throw "Bot initialization failed.";
                 }
             );
         }
