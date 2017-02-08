@@ -4,6 +4,7 @@
 #include "json.hpp"
 
 #include <simple-web-server/server_http.hpp>
+#include <neatnet/params.h>
 #include <neatnet/genalg.h>
 
 
@@ -11,6 +12,8 @@ using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 
 
 const std::string HEAD = "HTTP/1.1 ";
+const int NUM_INPUTS = 11;
+const int NUM_OUTPUTS = 2;
 
 
 //================== Function declarations ====================
@@ -18,7 +21,12 @@ void default_resource_send(const HttpServer &server, const std::shared_ptr<HttpS
                            const std::shared_ptr<std::ifstream> &ifs);
 
 void fitness_handler(std::shared_ptr<HttpServer::Response> response,
-                     std::shared_ptr<HttpServer::Request> request);
+                     std::shared_ptr<HttpServer::Request> request,
+                     neat::GenAlg& ga);
+
+void init_brains_handler(std::shared_ptr<HttpServer::Response> response,
+                         std::shared_ptr<HttpServer::Request> request,
+                         neat::GenAlg& ga);
 
 void default_resource_handler(HttpServer& server, std::shared_ptr<HttpServer::Response>& response,
                               std::shared_ptr<HttpServer::Request>& request);
@@ -30,8 +38,21 @@ int main(int argc, const char* argv[])
     HttpServer server;
     server.config.port = 8080;
 
+    neat::Params p("params.json");
+    neat::GenAlg ga(NUM_INPUTS, NUM_OUTPUTS, p);
+
     // Register request handlers here
-    server.resource["^/fitness$"]["POST"] = fitness_handler;
+    server.resource["^/fitness$"]["POST"] = [&server, &ga](std::shared_ptr<HttpServer::Response> response,
+                                                           std::shared_ptr<HttpServer::Request> request)
+    {
+        fitness_handler(response, request, ga);
+    };
+
+    server.resource["^/init_brains$"]["GET"] = [&ga](std::shared_ptr<HttpServer::Response> response,
+                                                     std::shared_ptr<HttpServer::Request> request)
+    {
+        init_brains_handler(response, request, ga);
+    };
 
     server.default_resource["GET"] = [&server](std::shared_ptr<HttpServer::Response> response,
                                                std::shared_ptr<HttpServer::Request> request)
@@ -109,7 +130,8 @@ inline void default_resource_handler(HttpServer& server,
  * Handles fitnesses coming from the client.
  */
 void fitness_handler(std::shared_ptr<HttpServer::Response> response,
-                     std::shared_ptr<HttpServer::Request> request)
+                     std::shared_ptr<HttpServer::Request> request,
+                     neat::GenAlg& ga)
 {
     using json = nlohmann::json;
     try
@@ -117,10 +139,49 @@ void fitness_handler(std::shared_ptr<HttpServer::Response> response,
         std::string post_data = request->content.string();
         json obj = json::parse(post_data);
 
-        json json_response;
-        json_response["success"] = true;
+        auto nns = ga.CreateNeuralNetworks();
+        auto first = nns[0];
+        auto outputs = first->Update({0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,0.10,0.11});
 
-        std::string result = json_response.dump();
+        std::cout << "Network output: ";
+        for(auto out : outputs)
+        {
+            std::cout << out << ", ";
+        }
+        std::cout << std::endl;
+
+        json network = nns[0]->serialize();
+
+        std::string result = network.dump();
+        *response << HEAD << "200 OK\r\n"
+                  << "Content-Type: application/json\r\n"
+                  << "Content-Length: " << result.length() << "\r\n\r\n"
+                  << result;
+    }
+    catch(std::exception& e)
+    {
+        std::cerr << "Didn't handle /fitness POST: " << e.what() << std::endl;
+        *response << HEAD << "400 Bad Request\r\nContent-Length: " << std::strlen(e.what()) << "\r\n\r\n" << e.what();
+    }
+}
+
+
+void init_brains_handler(std::shared_ptr<HttpServer::Response> response,
+                         std::shared_ptr<HttpServer::Request> request,
+                         neat::GenAlg& ga)
+{
+    using json = nlohmann::json;
+    try
+    {
+        json list;
+        auto nns = ga.CreateNeuralNetworks();
+        for(auto& nn : nns)
+        {
+            list.push_back(nn->serialize());
+        }
+
+        std::string result = list.dump();
+
         *response << HEAD << "200 OK\r\n"
                   << "Content-Type: application/json\r\n"
                   << "Content-Length: " << result.length() << "\r\n\r\n"
