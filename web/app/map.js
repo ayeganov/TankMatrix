@@ -63,7 +63,14 @@ define(['./utils', './consts'], function(utils, consts)
 
         ticks_lingered(x_pos, y_pos)
         {
-            return this._get_cell_absolute_coord(x_pos, y_pos).ticks;
+            try
+            {
+                return this._get_cell_absolute_coord(x_pos, y_pos).ticks;
+            }
+            catch(error)
+            {
+                return consts.MAX_TICK;
+            }
         }
 
         _get_cell_absolute_coord(x_pos, y_pos)
