@@ -49,61 +49,6 @@ define(['gl-matrix', './utils', './consts.js'], function(glmatrix, utils, consts
             return trans_sensors;
         }
 
-        /**
-         * Draw this bot at its current position.
-         */
-        draw_bot(ctx)
-        {
-            ctx.save();
-
-            ctx.beginPath();
-            var x = this.position[0];
-            var y = this.position[1];
-
-            var x_offset = this.image.width / 2;
-            var y_offset = this.image.height / 2;
-            ctx.translate(x, y);
-            ctx.rotate(this.rotation + consts.ANGLE_OFFSET);
-
-            ctx.drawImage(this.image, -x_offset, -y_offset, this.image.width, this.image.height);
-            ctx.restore();
-
-            ctx.fillStyle = 'red';
-            utils.draw_circle(ctx, x, y, 2);
-        }
-
-        draw_sensors(ctx, sensors, collisions)
-        {
-            ctx.fillStyle = 'blue';
-            var x = this.position[0];
-            var y = this.position[1];
-            var radius = 2;
-
-            var dir_angle = Math.atan2(this.direction[1], this.direction[0]) + consts.ANGLE_OFFSET;
-            for(var i = 0; i < sensors.length; ++i)
-            {
-                var sensor = sensors[i];
-                var collision_depth = collisions[i];
-
-                if(!_.isUndefined(collision_depth) && !_.isNull(collision_depth))
-                {
-                    ctx.fillStyle = 'red';
-                    ctx.strokeStyle = 'red';
-                }
-                else
-                {
-                    ctx.fillStyle = 'blue';
-                    ctx.strokeStyle = 'blue';
-                }
-
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.lineTo(sensor[0], sensor[1]);
-                ctx.stroke();
-                utils.draw_circle(ctx, sensor[0], sensor[1], radius);
-            }
-        }
-
         update_rotation(left_track, right_track)
         {
             var rotation_force = utils.clamp(left_track - right_track, -consts.MAX_ROTATION, consts.MAX_ROTATION);
@@ -201,10 +146,11 @@ define(['gl-matrix', './utils', './consts.js'], function(glmatrix, utils, consts
             return feelers;
         }
 
-        _is_too_close_to_move(collisions)
+        _is_too_close_to_obstacle_to_move(collisions)
         {
             for(let value of _.values(collisions))
             {
+                // arbitrarily chosen value - bots don't look terrible
                 if(value <= 0.4)
                 {
                     return true;
@@ -237,11 +183,10 @@ define(['gl-matrix', './utils', './consts.js'], function(glmatrix, utils, consts
             var collisions = this.get_collissions(trans_sensors, obstacles);
             var feelers = this.get_feeler_senses(trans_sensors, collisions);
 
-            var collided = this._is_too_close_to_move(collisions);
+            var collided = this._is_too_close_to_obstacle_to_move(collisions);
 
             var input = this._create_brain_input(collisions, feelers, collided);
 
-            // TODO: Supply readings to the brain.update method
             var track_speeds = this.brain.update(input);
             var left = track_speeds[0];
             var right = track_speeds[1];
@@ -249,10 +194,6 @@ define(['gl-matrix', './utils', './consts.js'], function(glmatrix, utils, consts
             this.update_rotation(left, right);
             this.update_direction();
             this.update_position(left, right, world_width, world_height, collided);
-            this.memory_map.draw_map(ctx);
-
-            this.draw_bot(ctx);
-            this.draw_sensors(ctx, trans_sensors, collisions);
         }
     }
 

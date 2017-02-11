@@ -1,4 +1,4 @@
-define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './brain'], function($, _, bot, map, obstacles, consts, brain)
+define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './brain', './graphics'], function($, _, bot, map, obstacles, consts, brain, graphics)
 {
     class Game
     {
@@ -6,7 +6,7 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
         {
             this.canvas = document.getElementById(canvas_id);
             this.ctx = this.canvas.getContext('2d');
-            this.initialize_bots();
+            this.bots = this.initialize_bots();
             this.loop_handle = null;
             this.init_graphics();
             this.setup_events();
@@ -45,6 +45,23 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
             }
         }
 
+        draw_bots()
+        {
+            if(this.bots.length < 1)
+            {
+                return;
+            }
+
+            var best_bot = _.max(this.bots, function(bot) { return bot.memory_map.get_num_cells_visited(); });
+            graphics.draw_bot_map(this.ctx, best_bot.memory_map);
+
+            for(let bot of this.bots)
+            {
+                graphics.draw_bot(this.ctx, bot);
+            }
+            graphics.draw_bot_sensors(this.ctx, best_bot);
+        }
+
         setup_events()
         {
             document.addEventListener('keydown', this.handle_events.bind(this));
@@ -79,11 +96,12 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
         loop()
         {
             this.clear_canvas();
-            for(let bot of this._bots)
+            for(let bot of this.bots)
             {
                 bot.update(this.ctx, this.canvas.width, this.canvas.height, obstacles.obstacles);
             }
             this.init_graphics();
+            this.draw_bots();
             this.draw_obstacles();
         }
 
@@ -107,19 +125,19 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
 
         initialize_bots()
         {
-            this._bots = [];
+            var bots = [];
             var self = this;
             $.get("init_brains").then(
                 function(response, text_status, jqXHR)
                 {
                     for(let r of response)
                     {
-                        self._bots.push(new bot.Bot(1,
-                                        [100, 100],
-                                        new brain.BotBrain(r),
-                                        new map.Map(self.canvas.width,
-                                                    self.canvas.height,
-                                                    consts.CELL_SIZE)));
+                        bots.push(new bot.Bot(1,
+                                  [100, 100],
+                                  new brain.BotBrain(r),
+                                  new map.Map(self.canvas.width,
+                                              self.canvas.height,
+                                              consts.CELL_SIZE)));
                     }
                 },
                 function(response, text_status, jqXHR)
@@ -127,6 +145,7 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
                     throw "Bot initialization failed.";
                 }
             );
+            return bots;
         }
 
         clear_canvas()
