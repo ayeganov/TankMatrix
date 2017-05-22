@@ -1,12 +1,17 @@
 'use strict';
 define([], function()
 {
+    var FPS = 90;
     var MAX_ROTATION = 0.2;
     var ANGLE_OFFSET = -Math.PI / 2;
     var NUM_SENSORS = 5;
-    var SENSOR_RANGE = 40;
-    var CELL_SIZE = 30;
-    var MAX_TICK = 255;
+    var SENSOR_RANGE = 47;
+    var COLLISION_THRESHOLD = 0.24;
+    var CELL_SIZE = 40;
+    var MAX_TICK = 127;
+    var EPOCH_INTERVAL = 40;
+    var BOT_START_POSITION = [400, 400];
+    var FAST_MODE_FRAMES_PER_EPOCH = 2000;
 
     return {
         MAX_ROTATION: MAX_ROTATION,
@@ -14,6 +19,11 @@ define([], function()
         NUM_SENSORS: NUM_SENSORS,
         SENSOR_RANGE: SENSOR_RANGE,
         CELL_SIZE: CELL_SIZE,
-        MAX_TICK: MAX_TICK
+        MAX_TICK: MAX_TICK,
+        EPOCH_INTERVAL: EPOCH_INTERVAL,
+        BOT_START_POSITION: BOT_START_POSITION,
+        FAST_MODE_FRAMES_PER_EPOCH: FAST_MODE_FRAMES_PER_EPOCH,
+        FPS: FPS,
+        COLLISION_THRESHOLD: COLLISION_THRESHOLD
     }
 });

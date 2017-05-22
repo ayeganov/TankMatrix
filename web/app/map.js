@@ -14,7 +14,7 @@ define(['./utils', './consts'], function(utils, consts)
 
         update()
         {
-            this.ticks = Math.min(this.ticks + 1, consts.MAX_TICK);
+            this.ticks = Math.min(this.ticks + 15, consts.MAX_TICK);
         }
 
         reset()

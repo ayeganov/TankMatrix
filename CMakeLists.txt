@@ -28,7 +28,8 @@ target_link_libraries(main NeatNet_1.0.0 ${OpenCV_LIBS})
 target_link_libraries(main ${Boost_LIBRARIES})
 target_link_libraries(main ${CMAKE_THREAD_LIBS_INIT})
 
-# Copy over web files
+# Copy over web and params files
 file(COPY web DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY params.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(VERSION 1.0.0)

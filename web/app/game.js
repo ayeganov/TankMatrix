@@ -5,61 +5,51 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
         constructor(canvas_id)
         {
             this.canvas = document.getElementById(canvas_id);
-            this.ctx = this.canvas.getContext('2d');
             this.bots = this.initialize_bots();
             this.loop_handle = null;
-            this.init_graphics();
+            this.epoch_handle = null;
+            this.current_loop = this.loop;
+
+            this.loop_interval_time = 1000 / consts.FPS;
+            this.epoch_interval_time = consts.EPOCH_INTERVAL * 1000;
+
+            console.log("Loop interval: " + this.loop_interval_time);
+            console.log("Epoch interval: " + this.epoch_interval_time);
+
+            this.render_graphics = true;
+            this.renderer = new graphics.Renderer(this.canvas);
+
+            this.renderer.init_graphics();
+            this.renderer.draw_border();
             this.setup_events();
+            this.response = null;
         }
 
-        init_graphics()
+        epoch()
         {
-            this.canvas.style.position = "absolute";
-            this.canvas.style.left = ($(window).width() / 2) - (this.canvas.width / 2) + "px";
-            this.ctx.strokeStyle = 'blue';
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(0, 0, this.canvas.width, this.canvas.height);
+            console.log("Epoch");
+            this.stop();
+            var fitnesses = _.map(this.bots, function(bot, idx)
+                                             {
+                                                return bot.memory_map.get_num_cells_visited();
+                                             });
+            this.post_fitnesses(fitnesses, this.epoch_completed.bind(this));
         }
 
-        draw_obstacles()
+        epoch_completed(response)
         {
-            this.ctx.lineWidth = 1;
-            this.ctx.strokeStyle = 'black';
-
-            for(let points of obstacles.obstacles)
+            console.log("Epoch completed");
+            for(let bb of _.zip(this.bots, response.brains))
             {
-                this._draw_obstacle(points);
+                var bot = bb[0];
+                var bot_brain = bb[1];
+                bot.reset();
+                bot.set_brain(new brain.BotBrain(bot_brain));
             }
-        }
+            this.renderer.update_resources();
 
-        _draw_obstacle(obstacle_points)
-        {
-            var start = obstacle_points[0];
-
-            this.ctx.beginPath();
-            this.ctx.moveTo(start[0], start[1]);
-            for(let point of _.rest(obstacle_points))
-            {
-                this.ctx.lineTo(point[0], point[1]);
-                this.ctx.stroke();
-            }
-        }
-
-        draw_bots()
-        {
-            if(this.bots.length < 1)
-            {
-                return;
-            }
-
-            var best_bot = _.max(this.bots, function(bot) { return bot.memory_map.get_num_cells_visited(); });
-            graphics.draw_bot_map(this.ctx, best_bot.memory_map);
-
-            for(let bot of this.bots)
-            {
-                graphics.draw_bot(this.ctx, bot);
-            }
-            graphics.draw_bot_sensors(this.ctx, best_bot);
+            this.response = response;
+            this.start();
         }
 
         setup_events()
@@ -71,69 +61,132 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
         {
             if(event.key === "Enter")
             {
-                if(this.loop_handle === null)
-                {
-                    this.start();
-                }
-                else
-                {
-                    this.stop();
-                }
+                console.log("Starting regular loop");
+                this.stop();
+                this.renderer = new graphics.Renderer(this.canvas);
+                this.current_loop = this.loop;
+                this.start();
+            }
+            else if(event.key === " ")
+            {
+                console.log("Starting fast loop");
+                this.stop();
+                this.renderer = new graphics.NoOpRenderer(this.canvas);
+                this.current_loop = this.fast_loop;
+                this.start();
+            }
+            else if(event.key === "b")
+            {
+                this.renderer = new graphics.BestBotRenderer(this.canvas);
+            }
+            else if(event.key === "a")
+            {
+                this.renderer = new graphics.Renderer(this.canvas);
+            }
+            else if(event.key === "s")
+            {
+                this.current_loop = null;
+                this.stop();
+            }
+            else if(event.key === "m")
+            {
+                this.update_game_state();
             }
         }
 
         start()
         {
-            this.loop_handle = setInterval(this.loop.bind(this), 17);
+            console.log("Starting...");
+            this._schedule_frame();
+
+            // schedule epoch callback if regular loop
+            if(this.current_loop === this.loop)
+            {
+                this.epoch_handle = setTimeout(this.epoch.bind(this), this.epoch_interval_time);
+            }
+        }
+
+        _schedule_frame()
+        {
+            if(this.current_loop !== null)
+            {
+                this.loop_handle = setTimeout(this.current_loop.bind(this), this.loop_interval_time);
+            }
         }
 
         stop()
         {
-            clearInterval(this.loop_handle);
+            console.log("Stopping the loop");
+            clearTimeout(this.loop_handle);
+            clearTimeout(this.epoch_handle);
             this.loop_handle = null;
+            this.epoch_handle = null;
+        }
+
+        update_game_state()
+        {
+            for(let bot of this.bots)
+            {
+                bot.update(this.canvas.width, this.canvas.height, obstacles.obstacles);
+            }
+
+            if(this.render_graphics)
+            {
+                this.renderer.render(this.bots, obstacles.obstacles, this.response);
+            }
+        }
+
+        fast_loop()
+        {
+            for(var i = 0; i < consts.FAST_MODE_FRAMES_PER_EPOCH; ++i)
+            {
+                this.update_game_state();
+            }
+
+            var fitnesses = _.map(this.bots, function(bot, idx)
+                                             {
+                                                return bot.memory_map.get_num_cells_visited();
+                                             });
+            this.post_fitnesses(fitnesses, this.epoch_completed.bind(this));
         }
 
         loop()
         {
-            this.clear_canvas();
-            for(let bot of this.bots)
-            {
-                bot.update(this.ctx, this.canvas.width, this.canvas.height, obstacles.obstacles);
-            }
-            this.init_graphics();
-            this.draw_bots();
-            this.draw_obstacles();
+            this.update_game_state();
+            this._schedule_frame();
         }
 
-        post_fitnesses()
+        post_fitnesses(fitnesses, completion_cb)
         {
+            console.log(fitnesses);
             var self = this;
-            $.post("fitness", JSON.stringify([ {id: 1, fitness: 1.0} ])).then(
+            $.post("fitness", JSON.stringify(fitnesses)).then(
                 function(response, text_status, jqXHR) {
-                    console.log("Status: " + text_status);
-                    console.log("Got response: " + response);
-                    self.test_brain = new brain.BotBrain(response);
-                    console.log(self.test_brain.update([0.1, 0.2,0.3,0.4,0.5,0.6, 0.7,0.8,0.9,0.10,0.11]));
-                    console.log("Got the brain");
+                    completion_cb(response);
                 },
                 function(response, text_status, jqXHR) {
-                    console.log("Post failed: " + text_status);
-                    console.log(response);
+                    console.log("Fetching bot brains failed: " + text_status);
                 }
             );
         }
 
         initialize_bots()
         {
-            var bots = [];
             var self = this;
+//            var bots = [new bot.Bot(1,
+//                        consts.BOT_START_POSITION,
+//                        new brain.PlayerBrain(),
+//                        new map.Map(self.canvas.width,
+//                                    self.canvas.height,
+//                                    consts.CELL_SIZE))];
+            var bots = [];
             $.get("init_brains").then(
                 function(response, text_status, jqXHR)
                 {
                     for(let r of response)
                     {
                         bots.push(new bot.Bot(1,
-                                  [100, 100],
+                                  consts.BOT_START_POSITION,
                                   new brain.BotBrain(r),
                                   new map.Map(self.canvas.width,
                                               self.canvas.height,
@@ -146,15 +199,6 @@ define(['jquery', 'underscore', './bot', './map', './obstacles', './consts', './
                 }
             );
             return bots;
-        }
-
-        clear_canvas()
-        {
-            this.ctx.save();
-            this.ctx.beginPath();
-            this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            this.ctx.restore();
         }
     }
 
