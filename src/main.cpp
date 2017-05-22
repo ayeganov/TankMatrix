@@ -1,11 +1,15 @@
 #include <fstream>
+#include <map>
+#include <string>
 
 #include <boost/filesystem.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include "json.hpp"
 
 #include <simple-web-server/server_http.hpp>
 #include <neatnet/params.h>
 #include <neatnet/genalg.h>
+#include <neatnet/netvisualize.h>
 
 
 using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
@@ -14,6 +18,9 @@ using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 const std::string HEAD = "HTTP/1.1 ";
 const int NUM_INPUTS = 11;
 const int NUM_OUTPUTS = 2;
+const std::string BEST_NN_PATH = "./web/images/best_nn_";
+const int IMAGE_WIDTH = 330;
+const int IMAGE_HEIGHT = 250;
 
 
 //================== Function declarations ====================
@@ -126,6 +133,21 @@ inline void default_resource_handler(HttpServer& server,
 }
 
 
+void generate_best_genome_images(neat::GenAlg& ga)
+{
+    int img_id = 1;
+    for(auto& bg : ga.BestGenomes())
+    {
+        neat::NeuralNet nn(bg);
+        auto img = neat::visualize_net(nn, IMAGE_WIDTH, IMAGE_HEIGHT, true);
+
+        std::stringstream ss;
+        ss << BEST_NN_PATH << img_id++ << ".png";
+
+        cv::imwrite(ss.str(), img);
+    }
+}
+
 /**
  * Handles fitnesses coming from the client.
  */
@@ -138,21 +160,60 @@ void fitness_handler(std::shared_ptr<HttpServer::Response> response,
     {
         std::string post_data = request->content.string();
         json obj = json::parse(post_data);
+        std::vector<double> fitnesses;
 
-        auto nns = ga.CreateNeuralNetworks();
-        auto first = nns[0];
-        auto outputs = first->Update({0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,0.10,0.11});
-
-        std::cout << "Network output: ";
-        for(auto out : outputs)
+        double max_fitness = 0.0;
+        for(double fitness : obj)
         {
-            std::cout << out << ", ";
+            max_fitness = std::max(max_fitness, fitness);
+            fitnesses.push_back(fitness);
         }
-        std::cout << std::endl;
 
-        json network = nns[0]->serialize();
+        std::cout << "Best fitness this epoch: " << max_fitness << std::endl;
+        std::cout << "Best ever fitness: " << ga.BestEverFitness() << std::endl;
 
-        std::string result = network.dump();
+        auto nns = ga.Epoch(fitnesses);
+        auto stats = ga.SpeciesStats();
+        std::cout << "Avg Species: " << stats.Mean()
+                  << ", STD: " << stats.StandardDeviation()
+                  << ", Min: " << stats.MinValue()
+                  << ", Max: " << stats.MaxValue()
+                  << ", Current: " << stats.LastValue()
+                  << std::endl;
+
+        json message;
+        auto& species = ga.GetSpecies();
+
+        std::unordered_map<std::string, double> species_counts;
+        for(auto& specie : species)
+        {
+            std::cout << "Specie " << specie.ID() << " spawned "
+                      << specie.SpawnsRequired() << " no improvement "
+                      << specie.GensNoImprovement() << std::endl;
+            species_counts[std::to_string(specie.ID())] = specie.SpawnsRequired();
+        }
+
+        json networks_list;
+        for(auto& nn : nns)
+        {
+            networks_list.push_back(nn->serialize());
+        }
+
+        generate_best_genome_images(ga);
+
+        int species_id = (int)ga.BestGenome().GetSpeciesID();
+        std::cout << "Best species id: " << species_id << std::endl;
+
+        json species_map(species_counts);
+        message["generation"] = ga.Generation();
+        message["best_specie_id"] = species_id;
+        message["brains"] = networks_list;
+        message["species"] = species_map;
+        message["best_so_far"] = ga.BestEverFitness();
+
+
+        std::string result = message.dump();
+
         *response << HEAD << "200 OK\r\n"
                   << "Content-Type: application/json\r\n"
                   << "Content-Length: " << result.length() << "\r\n\r\n"
@@ -160,7 +221,7 @@ void fitness_handler(std::shared_ptr<HttpServer::Response> response,
     }
     catch(std::exception& e)
     {
-        std::cerr << "Didn't handle /fitness POST: " << e.what() << std::endl;
+        std::cerr << "Didn't handle /fitness GET: " << e.what() << std::endl;
         *response << HEAD << "400 Bad Request\r\nContent-Length: " << std::strlen(e.what()) << "\r\n\r\n" << e.what();
     }
 }
@@ -189,7 +250,7 @@ void init_brains_handler(std::shared_ptr<HttpServer::Response> response,
     }
     catch(std::exception& e)
     {
-        std::cerr << "Didn't handle /fitness POST: " << e.what() << std::endl;
+        std::cerr << "Didn't handle /init_brains GET: " << e.what() << std::endl;
         *response << HEAD << "400 Bad Request\r\nContent-Length: " << std::strlen(e.what()) << "\r\n\r\n" << e.what();
     }
 }
